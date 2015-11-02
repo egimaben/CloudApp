@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:orientation="vertical"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:background="#e2e4fe">
+<LinearLayout
+            android:id="@+id/search_area"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="7dp"
+            android:background="@drawable/card"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingBottom="0dp"
+            android:paddingTop="15dp" >
+
+            <EditText
+                android:id="@+id/search_word"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="0dp"
+                android:hint="@string/prompt_search"
+                android:imeOptions="actionUnspecified"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:textColor="#000000"
+                android:textColorHint="#000000" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:weightSum="10" >
+
+                <Button
+                    android:id="@+id/name_search"
+                    style="@style/search_button"
+                    android:layout_weight="10"
+                    android:background="@drawable/search_button_selector"
+                    android:onClick="onClick"
+                    android:text="Search" />
+
+      <!--          <Button
+                    android:id="@+id/tweet_search"
+                    style="@style/search_button"
+                    android:layout_weight="5"
+                    android:background="@drawable/search_button_selector"
+                    android:onClick="onClick"
+                    android:text="TWEETS" />  -->
+
+                 
+            </LinearLayout>
+        </LinearLayout>
+    
+	<ListView
+		android:id="@+id/card_listView"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:listSelector="@android:color/transparent"
+		android:cacheColorHint="@android:color/transparent"
+		android:divider="@null"
+		android:dividerHeight="10dp" />
+</LinearLayout>

@@ -3,16 +3,24 @@ package io.cloudboost.rss;
 import io.cloudboost.CloudException;
 import io.cloudboost.CloudObject;
 import io.cloudboost.CloudObjectArrayCallback;
+import io.cloudboost.CloudObjectCallback;
 import io.cloudboost.CloudQuery;
-import io.cloudboost.CloudTable;
-import io.cloudboost.CloudTableCallback;
-import io.cloudboost.Column;
-import io.cloudboost.Column.DataType;
+import io.cloudboost.CloudSearch;
+import io.cloudboost.SearchQuery;
+import io.cloudboost.json.JSONException;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+
+
+
+
+
+
+import java.util.concurrent.ExecutionException;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -46,7 +54,6 @@ public class CardListActivity extends Activity implements OnClickListener {
 	// ImageLoader loader;
 	// Cursor cursor;
 	Button nameSearch;
-	Button tweetSearch;
 	EditText searchBox;
 	List<RSSItem> rssItems = new ArrayList<>();
 	RSSParser rssParser = new RSSParser();
@@ -62,7 +69,7 @@ public class CardListActivity extends Activity implements OnClickListener {
 		setContentView(R.layout.listview);
 		listView = (ListView) findViewById(R.id.card_listView);
 		nameSearch = (Button) findViewById(R.id.name_search);
-		// tweetSearch = (Button) findViewById(R.id.tweet_search);
+		nameSearch.setOnClickListener(this);
 		searchBox = (EditText) findViewById(R.id.search_word);
 
 		listView.addHeaderView(new View(this));
@@ -96,37 +103,12 @@ public class CardListActivity extends Activity implements OnClickListener {
 		pDialog.dismiss();
 	}
 
-	class initCloudApp extends AsyncTask<String, String, String> {
-
-		/**
-		 * Before starting background thread Show Progress Dialog
-		 * */
-		@Override
-		protected void onPreExecute() {
-			super.onPreExecute();
-			runProgressGuy("Initialising cloud app...");
-		}
-
-		/**
-		 * getting all recent articles and showing them in listview
-		 * */
-		@Override
-		protected String doInBackground(String... args) {
-
-			return null;
-		}
-
-		/**
-		 * After completing background task Dismiss the progress dialog
-		 * **/
-		protected void onPostExecute(String args) {
-			// dismiss the dialog after getting all products
-			// stopProgressGuy();
-			pDialog.dismiss();
-		}
-	}
-
-	public void populateMaps() {
+	public void populateMaps(CloudObject[] rssItemList) {
+		if(rssItemList.length==0){
+			say("0 records found");
+			return;
+			}
+		rssItemMaps.clear();
 		for (CloudObject obj : rssItemList) {
 			HashMap<String, String> map = new HashMap<>();
 			map.put(TAG_TITLE, obj.getString(TAG_TITLE));
@@ -142,7 +124,81 @@ public class CardListActivity extends Activity implements OnClickListener {
 	public void say(String text) {
 		Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
 	}
+	class SearchCloudBoost extends AsyncTask<String, String, String> {
 
+		/**
+		 * Before starting background thread Show Progress Dialog
+		 * */
+		@Override
+		protected void onPreExecute() {
+			super.onPreExecute();
+			runProgressGuy("Searching CloudBoost...");
+		}
+
+		/**
+		 * getting all recent articles and showing them in listview
+		 * */
+		@Override
+		protected String doInBackground(String... args) {
+			String searchWord=args[0];
+			SearchQuery searchObject=new SearchQuery().wildcard("title", "*"+searchWord+"*", null);
+			
+			CloudSearch search=new CloudSearch(TABLE_NAME, searchObject, null);
+			search.orderByDesc("title");
+			search.setLimit(10);
+			
+
+			try {
+				
+				search.search(new CloudObjectArrayCallback() {
+					
+					@Override
+					public void done(final CloudObject[] x, final CloudException t) throws CloudException {
+						runOnUiThread(new Runnable() {
+							public void run() {
+								stopProgressGuy();
+								if(x==null){
+									say("Error: "+t.getMessage());
+								}
+								else {
+									
+									updateList(x);
+								}
+							}
+						});
+						
+					
+						
+					}
+				});
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (CloudException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			return null;
+		}
+		
+		/**
+		 * After completing background task Dismiss the progress dialog
+		 * **/
+		protected void onPostExecute(String args) {
+			// dismiss the dialog after getting all products
+			// stopProgressGuy();
+			pDialog.dismiss();
+		}
+	}
 	class loadRSSFeedItems extends AsyncTask<String, String, String> {
 
 		/**
@@ -202,11 +258,12 @@ public class CardListActivity extends Activity implements OnClickListener {
 			});
 			
 			try {
+
 				cbobj.saveAll(rssItemList.toArray(new CloudObject[0]),
 						new CloudObjectArrayCallback() {
 
 							@Override
-							public void done(CloudObject[] x,
+							public void done(final CloudObject[] x,
 									final CloudException t)
 									throws CloudException {
 								if (t != null) {
@@ -223,22 +280,8 @@ public class CardListActivity extends Activity implements OnClickListener {
 											 * Updating parsed items into
 											 * listview
 											 * */
-											populateMaps();
-											ListAdapter adapter = new SimpleAdapter(
-													CardListActivity.this,
-													rssItemMaps,
-													R.layout.rss_item_list_row,
-													new String[] { TAG_LINK,
-															TAG_TITLE,
-															TAG_PUB_DATE,
-															TAG_DESRIPTION },
-													new int[] { R.id.page_url,
-															R.id.title,
-															R.id.pub_date,
-															R.id.link });
-
-											// updating listview
-											listView.setAdapter(adapter);
+											updateList(x);
+										
 										}
 									});
 								}
@@ -251,7 +294,7 @@ public class CardListActivity extends Activity implements OnClickListener {
 			}
 			return null;
 		}
-
+		
 		/**
 		 * After completing background task Dismiss the progress dialog
 		 * **/
@@ -261,37 +304,34 @@ public class CardListActivity extends Activity implements OnClickListener {
 			pDialog.dismiss();
 		}
 	}
+	public void updateList(CloudObject[] x){
+		populateMaps(x);
+		ListAdapter adapter = new SimpleAdapter(
+				CardListActivity.this,
+				rssItemMaps,
+				R.layout.rss_item_list_row,getRowFieldNames(),getRowFields());
 
+		// updating listview
+		listView.setAdapter(adapter);
+	}
+
+	public String[] getRowFieldNames(){
+		return new String[] { TAG_LINK,
+				TAG_TITLE,
+				TAG_PUB_DATE,
+				TAG_DESRIPTION };
+	}
+	public int[] getRowFields(){
+		return new int[] { R.id.page_url,
+				R.id.title,
+				R.id.pub_date,
+				R.id.link };
+	}
 	@Override
 	public void onClick(View arg0) {
 		String searchword = String.valueOf(searchBox.getText());
-		if (searchword == null) {
-			Toast.makeText(this, "no search params", Toast.LENGTH_SHORT);
-			return;
-		}
-		Cursor cursor;
-		int id = arg0.getId();
-		switch (id) {
-		case R.id.name_search:
-			Toast.makeText(this, "searching users", Toast.LENGTH_SHORT).show();
-			;
-			// cursor = db.search(searchword, DbHelper.KEY_NAME);
-			// startManagingCursor(cursor);
-			// adapter = new TimelineAdapter(this, cursor);
-			// listView.setAdapter(adapter);
-
-			break;
-		// case R.id.tweet_search:
-		// Toast.makeText(this, "searching tweets", Toast.LENGTH_SHORT).show();
-		// cursor = db.search(searchword, DbHelper.KEY_TWEET);
-		// startManagingCursor(cursor);
-		// adapter = new TimelineAdapter(this, cursor);
-		// listView.setAdapter(adapter);
-
-		// break;
-		default:
-			break;
+		new SearchCloudBoost().execute(searchword);
 		}
 
-	}
+	
 }
